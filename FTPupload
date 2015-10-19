@@ -68,17 +68,19 @@ void connectwifi()
 
 byte sendFTP()
 {
-  if (client.connect(server,21)) {
+  if (client.connect(server,21))
+  {
     Serial.println("Command connected");
   } 
-  else {
+  else
+  {
     Serial.println("Connamd connection failed");
     return 0;
   }
 
   if(!eRcv()) return 0;
 
-// Change to your user and password  
+  // Change to your user and password  
   client.write("USER username\r\n");
 
   if(!eRcv()) return 0;
