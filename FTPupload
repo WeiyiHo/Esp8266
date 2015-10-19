@@ -1,0 +1,201 @@
+#include "ESP8266WiFi.h"
+
+const char* ssid     = "YOUR_SSID";
+const char* password = "YOUR_PWD";
+const char* ssid_softAP = "MYESP_SSID";
+const char* password_softAP = "MYESP_PWD";
+
+// Change this to the ip of the ftp server
+IPAddress server( xxx, xxx, xxx, xxx );
+
+WiFiClient client;
+WiFiClient dclient;
+
+char outBuf[128];
+char outCount;
+
+void setup()
+{
+  Serial.begin(9600);
+  
+  // We start by connecting to a WiFi network
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(ssid_softAP, password_softAP);
+
+  // Connect wifi
+  connectwifi();
+  Serial.println("Ready. Press f");
+}
+
+void loop()
+{
+  byte inChar;
+
+  inChar = Serial.read();
+
+  if(inChar == 'f')
+  {
+    if(sendFTP()) 
+      Serial.println("FTP OK");
+    else 
+      Serial.println("FTP failed");
+  }
+}
+
+//====================FUNCTION============================
+
+void connectwifi()
+{
+  //Connect to AP
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+byte sendFTP()
+{
+  if (client.connect(server,21)) {
+    Serial.println("Command connected");
+  } 
+  else {
+    Serial.println("Connamd connection failed");
+    return 0;
+  }
+
+  if(!eRcv()) return 0;
+
+// Change to your user and password  
+  client.write("USER username\r\n");
+
+  if(!eRcv()) return 0;
+
+  client.write("PASS userpwd\r\n");
+
+  if(!eRcv()) return 0;
+
+  client.write("SYST\r\n");
+
+  if(!eRcv()) return 0;
+
+  client.write("PASV\r\n");
+
+  if(!eRcv()) return 0;
+
+  char *tStr = strtok(outBuf,"(,");
+  int array_pasv[6];
+  for ( int i = 0; i < 6; i++)
+  {
+    tStr = strtok(NULL,"(,");
+    array_pasv[i] = atoi(tStr);
+    if(tStr == NULL)
+    {
+      Serial.println("Bad PASV Answer");    
+      client.stop();
+      return 0;  
+    }
+  }
+
+  unsigned int hiPort,loPort;
+
+  hiPort = array_pasv[4] << 8;
+  loPort = array_pasv[5] & 255;
+
+  Serial.print("Data port: ");
+  hiPort = hiPort | loPort;
+  Serial.println(hiPort);
+ 
+  if (dclient.connect(server,hiPort))
+  {
+    Serial.println("Data connected");
+  } 
+  else
+  {
+    Serial.println("Data connection failed");
+    client.stop();
+    return 0;
+  }
+  
+  //To append
+  client.write("APPE /test.txt\r\n");
+  //To replace
+  //client.write("STOR /test.txt\r\n");
+  
+  //Write your data
+  dclient.write("");
+  //dclient.print("");
+
+  client.write("QUIT\r\n");
+
+  if(!eRcv()) return 0;
+
+  dclient.stop();
+  client.stop();
+  Serial.println("disconnected");
+  return 1;
+}
+
+byte eRcv()
+{
+  byte respCode;
+  byte thisByte;
+
+  while(!client.available()) delay(1);
+
+  respCode = client.peek();
+
+  outCount = 0;
+  
+  while(client.available())
+  {  
+    thisByte = client.read();    
+    Serial.write(thisByte);
+
+    if(outCount < 127)
+    {
+      outBuf[outCount] = thisByte;
+      outCount++;      
+      outBuf[outCount] = 0;
+    }
+  }
+
+  if(respCode >= '4')
+  {
+    efail();
+    return 0;  
+  }
+
+  return 1;
+}
+
+void efail()
+{
+  byte thisByte = 0;
+
+  client.write("QUIT\r\n");
+
+  while(!client.available()) delay(1);
+
+  while(client.available())
+  {  
+    thisByte = client.read();    
+    Serial.write(thisByte);
+  }
+
+  client.stop();
+  dclient.stop();
+  Serial.println("disconnected");
+}
