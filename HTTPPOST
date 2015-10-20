@@ -1,0 +1,92 @@
+#include <ESP8266WiFi.h>
+
+const char* ssid     = "YOUR_SSID";
+const char* password = "YOUR_PWD";
+const char* ssid_softAP = "MYESP_SSID";
+const char* password_softAP = "MYESP_PWD";
+const char* host = "192.168.4.1"; //Esp8266 default host IP
+const char* IOTserver = "xxx.xxx.xxx.xxx"; // change to your serverIP
+
+WiFiClient client;
+
+void setup()
+{
+  Serial.begin(9600); // change to your baudrate
+
+  // We start by connecting to a WiFi network
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("MYESP","0955757812");
+  
+  //Connect to AP
+  connectwifi();
+}
+
+void loop()
+{
+  byte inChar;
+
+  inChar = Serial.read();
+
+  if(inChar == 'f')
+  {
+    if(sendHTTP()) 
+      Serial.println("HTTP POST OK");
+    else 
+      Serial.println("HTTP POST failed");
+  }
+}
+
+//====================FUNCTION============================
+
+void connectwifi()
+{
+  //Connect to AP
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+byte sendHTTP()
+{
+  if(client.connect(IOTserver,80))
+  {
+    Serial.println("Connect success");
+  }
+  else
+  {
+    Serial.println("Connect fail");
+    return 0;
+  }
+  
+  String url ="";
+  url += "/     "; // change to your internet site
+
+  Serial.print("POST data to URL: ");
+  Serial.println(url);
+  
+  client.print(String("POST ") + url + " HTTP/1.1\n" +
+               "Host: " + String(IOTserver) + "\n" +
+               "Connection: close\n" + 
+               "Content-Type: application/x-www-form-urlencoded\n" +  
+               "Content-Length: 20\n" + 
+               "\nT1=     &T2=     "); //change name of variables depend on internet site
+               
+   client.stop();
+   Serial.println("disconnected");
+}
+
+
