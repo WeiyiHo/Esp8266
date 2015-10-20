@@ -15,7 +15,7 @@ void setup()
 
   // We start by connecting to a WiFi network
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP("MYESP","0955757812");
+  WiFi.softAP("ssid_softAP","password_softAP");
   
   //Connect to AP
   connectwifi();
